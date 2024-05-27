@@ -2,11 +2,18 @@ import streamlit as st
 from pytube import YouTube
 import time
 
+# we need a variable to write to. Could be global, or could be done w/ classes
+global_bytes_io = io.BytesIO()
+
+def on_progress(stream, chunk, bytes_remaining):
+    # Just write the chunk to the file-like BytesIO object, which we'll return later
+    global_bytes_io.write(chunk)
+    
 def download_video(url):
-    yt = YouTube(url)
+    yt = YouTube(url, on_progress_callback=on_progress)
     stream = yt.streams.get_highest_resolution()
-    stream.download()
-    return stream.default_filename
+    stream.download(output_path='/dev/null')
+    return global_bytes_io
 
 st.title('📥 YouTube Video Downloader by Rizwan')
 
