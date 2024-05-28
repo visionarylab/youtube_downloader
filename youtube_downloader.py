@@ -1,36 +1,37 @@
 import streamlit as st
 from pytube import YouTube
-import time
+from io import BytesIO
+from pathlib import Path
 
-# we need a variable to write to. Could be global, or could be done w/ classes
-global_bytes_io = io.BytesIO()
+st.set_page_config(page_title="Download Video", page_icon="🎵", layout="centered", initial_sidebar_state="collapsed")
 
-def on_progress(stream, chunk, bytes_remaining):
-    # Just write the chunk to the file-like BytesIO object, which we'll return later
-    global_bytes_io.write(chunk)
-    
-def download_video(url):
-    yt = YouTube(url, on_progress_callback=on_progress)
-    stream = yt.streams.get_highest_resolution()
-    stream.download(output_path='/dev/null')
-    return global_bytes_io
+@st.cache_data(show_spinner=False)
+def download_video_to_buffer(url):
+    buffer = BytesIO()
+    youtube_video = YouTube(url)
+    video = youtube_video.streams.filter(progressive="True",file_extension="mp4").order_by('resolution').desc()
+    video_720p=video[0]
+    default_filename = video_720p.default_filename
+    video_720p.stream_to_buffer(buffer)
+    return default_filename, buffer
 
-st.title('📥 YouTube Video Downloader by Rizwan')
+def main():
+    st.title("Download video from Youtube")
+    url = st.text_input("Insert Youtube URL:")
+    if url:
+        with st.spinner("Downloading video Stream from Youtube..."):
+            default_filename, buffer = download_video_to_buffer(url)
+        st.subheader("Title")
+        st.write(default_filename)
+        title_vid = Path(default_filename).with_suffix(".mp4").name
+        st.subheader("Watch the video")
+        st.video(buffer, format='video/mpeg')
+        st.subheader("Download Audio File")
+        st.download_button(
+            label="Download mp4",
+            data=buffer,
+            file_name=title_vid,
+            mime="video/mpeg")
 
-video_url = st.text_input('Enter the URL of the YouTube video you wish to download:')
-
-if st.button('Download'):
-    try:
-        # Display a message and start a progress bar
-        st.info('Starting download...')
-        progress_bar = st.progress(0)
-        for percent_complete in range(100):
-            time.sleep(0.1)  # Simulate a delay (Replace with actual download progress if possible)
-            progress_bar.progress(percent_complete + 1)
-        
-        filename = download_video(video_url)
-        
-        st.success(f'Video downloaded successfully: {filename}')
-        st.info('Please check your device\'s download folder.')
-    except Exception as e:
-        st.error(f'An error occurred: {e}')
+if __name__ == "__main__":
+    main()
